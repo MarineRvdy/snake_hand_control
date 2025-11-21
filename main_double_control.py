@@ -97,17 +97,23 @@ while ret and running:
         ring_finger_mcp = 13
         pinky_finger_mcp = 17
         
+        right_hand = None
+        left_hand = None
 
-
+        # Detect lleft or/and right hand(s)
         for hand_idx, hand_landmarks in enumerate(points.multi_hand_landmarks):
             hand_label = points.multi_handedness[hand_idx].classification[0].label  # "Left" ou "Right"
-            landmarks_hand = hand_landmarks.landmark
+            
+            if hand_label == "Right":
+                right_hand = hand_landmarks.landmark
+            elif hand_label == "Left":
+                left_hand = hand_landmarks.landmark
 
-        if hand_label == "Right":
+        if right_hand:
             # Direction
-            thumb_1 = landmarks_hand[thumb_tip]
-            index_tip_1 = landmarks_hand[index_finger_tip]
-            wrist_1 = landmarks_hand[hand_wrist]
+            thumb_1 = right_hand[thumb_tip]
+            index_tip_1 = right_hand[index_finger_tip]
+            wrist_1 = right_hand[hand_wrist]
             
             # calculate for directions (hand 1)
             x_wrist = int(wrist_1.x * width)
@@ -141,19 +147,19 @@ while ret and running:
                         direction = "Up"
 
 
-        elif hand_label == "Left":
+        if left_hand:
             # Speed
-            thumb_2 = landmarks_hand[thumb_tip]
-            index_tip_2 = landmarks_hand[index_finger_tip]
-            middle_tip_2 = landmarks_hand[middle_finger_tip]
-            ring_tip_2 = landmarks_hand[ring_finger_tip]
-            pinky_tip_2 = landmarks_hand[pinky_finger_tip]
-            wrist_2 = landmarks_hand[hand_wrist]
+            thumb_2 = left_hand[thumb_tip]
+            index_tip_2 = left_hand[index_finger_tip]
+            middle_tip_2 = left_hand[middle_finger_tip]
+            ring_tip_2 = left_hand[ring_finger_tip]
+            pinky_tip_2 = left_hand[pinky_finger_tip]
+            wrist_2 = left_hand[hand_wrist]
 
-            index_mcp_2 = landmarks_hand[index_finger_mcp]
-            middle_mcp_2 = landmarks_hand[middle_finger_mcp]
-            ring_mcp_2 = landmarks_hand[ring_finger_mcp]
-            pinky_mcp_2 = landmarks_hand[pinky_finger_mcp]
+            index_mcp_2 = left_hand[index_finger_mcp]
+            middle_mcp_2 = left_hand[middle_finger_mcp]
+            ring_mcp_2 = left_hand[ring_finger_mcp]
+            pinky_mcp_2 = left_hand[pinky_finger_mcp]
 
 
             if direction == None:
@@ -163,19 +169,18 @@ while ret and running:
                     x, y = 100, 100
                     snake = [(x,y)] * 50
                     step = STEP_MIN
-       
+    
             else :
                 # Speeds (hand 2)
                 if euclidean_dist(index_mcp_2, index_tip_2) < 0.05 and euclidean_dist(middle_mcp_2, middle_tip_2) < 0.05 and euclidean_dist(ring_mcp_2, ring_tip_2) < 0.05 and euclidean_dist(pinky_mcp_2, pinky_tip_2) < 0.05:
                     # fist
                     if step < STEP_MAX:
                         step += 1
-
-                # if euclidean_dist(index_mcp_2, index_tip_2) > 0.05 and euclidean_dist(middle_mcp_2, middle_tip_2) > 0.05 and euclidean_dist(ring_mcp_2, ring_tip_2) > 0.05 and euclidean_dist(pinky_mcp_2, pinky_tip_2) > 0.05:
-                #     # open hand
-                #     if step > STEP_MIN:
-                #         step -= 1
-                    
+                if euclidean_dist(index_mcp_2, index_tip_2) > 0.1 and euclidean_dist(middle_mcp_2, middle_tip_2) > 0.1 and euclidean_dist(ring_mcp_2, ring_tip_2) > 0.1 and euclidean_dist(pinky_mcp_2, pinky_tip_2) > 0.1:
+                    # open hand
+                    if step > STEP_MIN:
+                        step -= 1
+                
 
            
 
