@@ -4,6 +4,20 @@ import cv2
 import numpy as np
 
 
+# CSTE
+# tip
+THUMB_TIP = 4
+INDEX_TIP = 8
+MIDDLE_TIP = 12
+RING_TIP = 16
+PINKY_TIP = 20
+# mcp
+WRIST = 0
+INDEX_MCP = 5
+MIDDLE_MCP = 9
+RING_MCP = 13
+PINKY_MCP = 17
+
 # FUNCTION
 def euclidean_dist(pts1,pts2):
     p1 = np.array([pts1.x,pts1.y,pts1.z])
@@ -14,8 +28,10 @@ def euclidean_dist(pts1,pts2):
 def is_fist(pts1,pts2):
     pass
 
-def restart(pts1,pts2) -> bool:
-    return bool(euclidean_dist(pts1, pts2) < 0.05)
+def restart(hand) -> bool:
+    thumb_tip = hand[THUMB_TIP]
+    index_tip = hand[INDEX_TIP]
+    return bool(euclidean_dist(thumb_tip, index_tip) < 0.05)
 
 
 # HANDS INIT
@@ -31,14 +47,7 @@ hands = mp_hands.Hands(
 
 
 # CAMERA INIT
-cv2.namedWindow("Camera")
 cap = cv2.VideoCapture(0)  # 0 = webcam
-
-if cap.isOpened():
-    ret, frame = cap.read()
-else :
-    ret = False
-
 
 # PYGAME INIT
 pygame.init()
@@ -51,15 +60,16 @@ pygame.display.set_caption("Snake hand control")
 running = True
 clock = pygame.time.Clock()
 
-
-x, y = 100, 100
+# INIT VARIABLE
+x, y = 500, 100
 snake = [(x,y)] * 50
 STEP_MAX = 10
 STEP_MIN = 2
 step = STEP_MIN
-direction = "Right"
+direction = "Left"
+game_over = False
 
-# End texte
+# TEXT DISPLAY
 font = pygame.font.SysFont('Arial',36)
 end_display = font.render("You Lose ! Try again !", True, (0,0,0))
 end_position = end_display.get_rect(center=(400,100))
@@ -70,37 +80,32 @@ speed_position = speed_display.get_rect(center=(400,300))
 
 
 # WHILE CAMERA and PYGAME
-while ret and running:   
+while running:   
     ret, frame = cap.read()
+    if not ret:
+        break
     frame = cv2.flip(frame, 1) # flip camera to mirror
     image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
     image.flags.writeable = False
     points = hands.process(image) # hands points
     image.flags.writeable = True
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    
+    # camera_frame = np.swapaxes(image, 0, 1)
+    camera_frame = np.transpose(image, (1, 0, 2))   # SANS rotation
+    camera_surface = pygame.surfarray.make_surface(camera_frame)
+    camera_small = pygame.transform.scale(camera_surface, (200, 150))
     
     height, width = image.shape[:2]
 
 
     # Draw hand landmarks
-    if points.multi_hand_landmarks:
-        # tip
-        thumb_tip = 4
-        index_finger_tip = 8
-        hand_wrist = 0
-        middle_finger_tip = 12
-        ring_finger_tip = 16
-        pinky_finger_tip = 20
-        # mcp
-        index_finger_mcp = 5
-        middle_finger_mcp = 9
-        ring_finger_mcp = 13
-        pinky_finger_mcp = 17
+    if points.multi_hand_landmarks and points.multi_handedness:
         
         right_hand = None
         left_hand = None
-
-        # Detect lleft or/and right hand(s)
+        
+        # Detect left or/and right hand(s)
         for hand_idx, hand_landmarks in enumerate(points.multi_hand_landmarks):
             hand_label = points.multi_handedness[hand_idx].classification[0].label  # "Left" ou "Right"
             
@@ -109,84 +114,75 @@ while ret and running:
             elif hand_label == "Left":
                 left_hand = hand_landmarks.landmark
 
-        if right_hand:
-            # Direction
-            thumb_1 = right_hand[thumb_tip]
-            index_tip_1 = right_hand[index_finger_tip]
-            wrist_1 = right_hand[hand_wrist]
+        # Check for restart if game over
+        if game_over:
+            if (right_hand and restart(right_hand)) or (left_hand and restart(left_hand)):
+                direction = "Left"
+                x, y = 500, 100
+                snake = [(x,y)] * 50
+                step = STEP_MIN
+                game_over = False
+
+        # Right hand Direction
+        if right_hand and len(right_hand) == 21:
             
-            # calculate for directions (hand 1)
-            x_wrist = int(wrist_1.x * width)
-            y_wrist = int(wrist_1.y * height)
-            x_index = int(index_tip_1.x * width)
-            y_index = int(index_tip_1.y * height)
+            index_tip = right_hand[INDEX_TIP]
+            wrist = right_hand[WRIST]
+            
+            # calculate
+            x_wrist = int(wrist.x * width)
+            y_wrist = int(wrist.y * height)
+            x_index = int(index_tip.x * width)
+            y_index = int(index_tip.y * height)
 
-            if direction == None:
-                # Restart (index_tip near thumb)
-                if restart(thumb_1, index_tip_1):    
+
+            if abs(x_index-x_wrist) > abs(y_index-y_wrist):
+
+                if x_index > x_wrist:
+                    # Right
                     direction = "Right"
-                    x, y = 100, 100
-                    snake = [(x,y)] * 50
-                    step = STEP_MIN
-                
-            else :
-                # Directions (hand 1)
-                if abs(x_index-x_wrist) > abs(y_index-y_wrist):
-
-                    if x_index > x_wrist:
-                        direction = "Right"
-                    else:
-                        # Left
-                        direction = "Left"
                 else:
-                    if y_index > y_wrist:
-                        # Down
-                        direction = "Down"
-                    else:
-                        # Up
-                        direction = "Up"
+                    # Left
+                    direction = "Left"
+            else:
+                if y_index > y_wrist:
+                    # Down
+                    direction = "Down"
+                else:
+                    # Up
+                    direction = "Up"
 
+        # Left hand Speed
+        if left_hand and len(left_hand) == 21:
 
-        if left_hand:
-            # Speed
-            thumb_2 = left_hand[thumb_tip]
-            index_tip_2 = left_hand[index_finger_tip]
-            middle_tip_2 = left_hand[middle_finger_tip]
-            ring_tip_2 = left_hand[ring_finger_tip]
-            pinky_tip_2 = left_hand[pinky_finger_tip]
-            wrist_2 = left_hand[hand_wrist]
+            thumb_tip = left_hand[THUMB_TIP]
+            index_tip = left_hand[INDEX_TIP]
+            middle_tip = left_hand[MIDDLE_TIP]
+            ring_tip = left_hand[RING_TIP]
+            pinky_tip = left_hand[PINKY_TIP]
+            wrist = left_hand[WRIST]
 
-            index_mcp_2 = left_hand[index_finger_mcp]
-            middle_mcp_2 = left_hand[middle_finger_mcp]
-            ring_mcp_2 = left_hand[ring_finger_mcp]
-            pinky_mcp_2 = left_hand[pinky_finger_mcp]
+            index_mcp = left_hand[INDEX_MCP]
+            middle_mcp = left_hand[MIDDLE_MCP]
+            ring_mcp = left_hand[RING_MCP]
+            pinky_mcp = left_hand[PINKY_MCP]
 
-
-            if direction == None:
-                # Restart (index_tip near thumb)
-                if restart(thumb_2, index_tip_2):    
-                    direction = "Right"
-                    x, y = 100, 100
-                    snake = [(x,y)] * 50
-                    step = STEP_MIN
-    
-            else :
-                # Speeds (hand 2)
-                if euclidean_dist(index_mcp_2, index_tip_2) < 0.05 and euclidean_dist(middle_mcp_2, middle_tip_2) < 0.05 and euclidean_dist(ring_mcp_2, ring_tip_2) < 0.05 and euclidean_dist(pinky_mcp_2, pinky_tip_2) < 0.05:
-                    # fist
-                    if step < STEP_MAX:
-                        step += 1
-                if euclidean_dist(index_mcp_2, index_tip_2) > 0.1 and euclidean_dist(middle_mcp_2, middle_tip_2) > 0.1 and euclidean_dist(ring_mcp_2, ring_tip_2) > 0.1 and euclidean_dist(pinky_mcp_2, pinky_tip_2) > 0.1:
-                    # open hand
-                    if step > STEP_MIN:
-                        step -= 1
+          
+            if euclidean_dist(index_mcp, index_tip) < 0.07 and euclidean_dist(middle_mcp, middle_tip) < 0.07 and euclidean_dist(ring_mcp, ring_tip) < 0.07 and euclidean_dist(pinky_mcp, pinky_tip) < 0.07:
+                # fist
+                if step < STEP_MAX:
+                    step += 1
+            if euclidean_dist(index_mcp, index_tip) > 0.14 and euclidean_dist(middle_mcp, middle_tip) > 0.14 and euclidean_dist(ring_mcp, ring_tip) > 0.14 and euclidean_dist(pinky_mcp, pinky_tip) > 0.14:
+                # open hand
+                if step > STEP_MIN:
+                    step -= 1
                 
 
            
 
             
     # Snake movement
-    if direction != None:
+    if not(game_over):
         match direction:
             case "Right":
                 x += step
@@ -196,11 +192,7 @@ while ret and running:
                 y -= step
             case "Down":
                 y += step
-        
-        # # update snake
-        # snake.pop(0)
-        # snake.append((x,y))
-        # Nouvelle position
+
         new_pos = (x, y)
 
         # Interpoler si step > 1
@@ -220,13 +212,16 @@ while ret and running:
     # UPDATE PYGAME
     screen.fill((255, 255, 255))
     speed_display = font.render(f"Speed : {step}", True, (0,0,0))
+    screen.blit(camera_small,(0,450))
     screen.blit(speed_display,speed_position)
+    
 
     if x <= 0 or x >= 799 or y <= 0 or y >= 599:
         screen.fill((255,0,0))
+        screen.blit(camera_small,(0,450))
         screen.blit(end_display,end_position)
         screen.blit(restart_display,restart_position)
-        direction = None
+        game_over = True
     else :
         for position in snake:
             if position != None:
@@ -239,13 +234,6 @@ while ret and running:
     pygame.display.flip()
     clock.tick(60)
 
-    # UPDATE CAMERA
-    cv2.imshow('Camera', image)
-    
-    # QUIT CAMERA
-    key = cv2.waitKey(20)
-    if key == 27:
-        break
     # QUIT PYGAME
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
