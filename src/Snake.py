@@ -1,8 +1,8 @@
 import pygame
-from typing import List, Any, Dict, Tuple, Optional
+from typing import List, Tuple, Optional
 
-SPEED_MIN: int = 2
-SPEED_MAX: int = 10
+SPEED_MIN: int = 1
+SPEED_MAX: int = 5
 
 class Snake:
     
@@ -15,9 +15,13 @@ class Snake:
         self.__x: int = self.__x_start
         self.__y: int = self.__y_start
         
-        self.__body: List[Tuple[int, int]] = [(self.__x, self.__y)] * 50
+        self.__body: List[Tuple[int, int]] = [(self.__x, self.__y) for _ in range(50)]
         self.__speed: int = SPEED_MIN
         self.__direction: str = "Left"
+
+    def getSpeed(self) -> int:
+        return self.__speed
+
 
     def speedChange(self, change: int) -> None:
         if change == 1 and self.__speed < SPEED_MAX:
@@ -28,7 +32,10 @@ class Snake:
     def update(self, direction: Optional[str]) -> None:
         if direction:
             self.__direction = direction
-
+        
+        old_x = self.__x
+        old_y = self.__y
+        
         match self.__direction:
             case "Right":
                 self.__x += self.__speed
@@ -39,19 +46,16 @@ class Snake:
             case "Down":
                 self.__y += self.__speed
 
-        new_pos: Tuple[int, int] = (self.__x, self.__y)
-        last_pos: Tuple[int, int] = self.__body[-1]
-
-        interpolated_positions: List[Tuple[int, int]] = []
+        # Interpolate positions
         for i in range(1, self.__speed + 1):
-            interp_x: int = int(last_pos[0] + (new_pos[0] - last_pos[0]) * i / self.__speed)
-            interp_y: int = int(last_pos[1] + (new_pos[1] - last_pos[1]) * i / self.__speed)
-            interpolated_positions.append((interp_x, interp_y))
+            interp_x: int = old_x + (self.__x - old_x) * i / self.__speed
+            interp_y: int = old_y + (self.__y - old_y) * i / self.__speed
+            self.__body.append((int(interp_x), int(interp_y)))
 
-        # Add positions interpolate and keep snake size
-        for pos in interpolated_positions:
+        # Fixed length for snake
+        while len(self.__body) > 50:
             self.__body.pop(0)
-            self.__body.append(pos)
+        
     
     def checkCollision(self, screen_width: int, screen_height: int) -> bool:
         collision: bool = False

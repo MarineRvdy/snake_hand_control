@@ -2,7 +2,7 @@ import cv2
 import pygame
 from HandController import HandController
 from Snake import Snake
-from typing import List, Any, Dict, Tuple, Optional
+from typing import Any, Dict, Optional
 
 class Game:
     def __init__(self) -> None:
@@ -80,7 +80,7 @@ class Game:
         self.__screen.blit(restart_display, restart_display.get_rect(center=(400, 300)))
 
     def gameRunningDisplay(self) -> None:
-        speed_display: pygame.Surface = self.__font.render(f"Speed : {self.__snake._Snake__speed}", True, (0, 0, 0))
+        speed_display: pygame.Surface = self.__font.render(f"Speed : {self.__snake.getSpeed()}", True, (0, 0, 0))
         self.__screen.blit(speed_display, (350, 550))
     
     def run(self) -> None:
