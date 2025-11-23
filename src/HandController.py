@@ -4,19 +4,44 @@ import pygame
 import numpy as np
 from typing import List, Any, Dict, Tuple, Optional
 
-# tip
-THUMB_TIP: int = 4
-INDEX_TIP: int = 8
-MIDDLE_TIP: int = 12
-RING_TIP: int = 16
-PINKY_TIP: int = 20
-# mcp
+# wrist
 WRIST: int = 0
-INDEX_MCP: int = 5
-MIDDLE_MCP: int = 9
-RING_MCP: int = 13
-PINKY_MCP: int = 17
 
+# thumb
+THUMB_CMC: int = 1
+THUMB_MCP: int = 2
+THUMB_IP: int = 3
+THUMB_TIP: int = 4
+
+# index
+INDEX_MCP: int = 5
+INDEX_PIP: int = 6
+INDEX_DIP: int = 7
+INDEX_TIP: int = 8
+
+# middle
+MIDDLE_MCP: int = 9
+MIDDLE_PIP: int = 10
+MIDDLE_DIP: int = 11
+MIDDLE_TIP: int = 12
+
+# ring
+RING_MCP: int = 13
+RING_PIP: int = 14
+RING_DIP: int = 15
+RING_TIP: int = 16
+
+# pinky
+PINKY_MCP: int = 17
+PINKY_PIP: int = 18
+PINKY_DIP: int = 19
+PINKY_TIP: int = 20
+
+
+FINGERS_TIPS: List[int] = [INDEX_TIP, MIDDLE_TIP, RING_TIP, PINKY_TIP]
+FINGERS_MCPS: List[int] = [INDEX_MCP, MIDDLE_MCP, RING_MCP, PINKY_MCP]
+FINGERS_DIPS: List[int] = [INDEX_DIP, MIDDLE_DIP, RING_DIP, PINKY_DIP]
+FINGERS_PIPS: List[int] = [INDEX_PIP, MIDDLE_PIP, RING_PIP, PINKY_PIP]
 
 class HandController:
     
@@ -67,7 +92,8 @@ class HandController:
         command: Dict[str, Any] = {
             "direction": None,
             "speed_change": 0,
-            "restart": False
+            "restart": False,
+            "pause": False
         }
 
         right_hand: Optional[List[Any]] = None
@@ -87,6 +113,11 @@ class HandController:
             if (right_hand and self.restartDetected(right_hand)) or (left_hand and self.restartDetected(left_hand)):
                command["restart"] = True
 
+            # Check for pause
+            if right_hand and left_hand and self.pauseDetected((right_hand,left_hand)):
+                command["pause"] = True
+            
+            # Check for direction
             if right_hand and len(right_hand) == 21:
                 command["direction"] = self.directionDetected(right_hand)
             
@@ -146,6 +177,40 @@ class HandController:
             change = -1
 
         return change
+    
+    def pauseDetected(self, hands : Tuple[List[Any]]) -> bool:
+        pause: bool = False
+        right_hand = hands[0]
+        left_hand = hands[1]
+
+        dists_right_hand: List[float] = []
+        dists_left_hand: List[float] = []
+
+        y_wrist_right = right_hand[WRIST].y
+        y_wrist_left = left_hand[WRIST].y
+
+        for tip, mcp, dip, pip in zip(FINGERS_TIPS, FINGERS_MCPS, FINGERS_DIPS, FINGERS_PIPS):
+           
+            dists_right_hand.extend([
+                abs(right_hand[tip].y - y_wrist_right),
+                abs(right_hand[pip].y - y_wrist_right),
+                abs(right_hand[dip].y - y_wrist_right),
+                abs(right_hand[mcp].y - y_wrist_right)
+            ])
+            
+            dists_left_hand.extend([
+                abs(left_hand[tip].y - y_wrist_left),
+                abs(left_hand[pip].y - y_wrist_left),
+                abs(left_hand[dip].y - y_wrist_left),
+                abs(left_hand[mcp].y - y_wrist_left)
+            ])
+        
+
+        if all(d < 0.07 for d in dists_right_hand) and all(d > 0.07 for d in dists_left_hand):
+            pause = True
+
+        return pause
+
 
     def close(self) -> None:
         self.__cap.release()

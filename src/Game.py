@@ -16,6 +16,7 @@ class Game:
         self.__clock: pygame.time.Clock = pygame.time.Clock()
         self.__running: bool = True
         self.__game_over: bool = False
+        self.__pause: bool = False
         self.__camera_image: Optional[pygame.Surface] = None
 
         self.__hand_controller: HandController = HandController()
@@ -35,17 +36,23 @@ class Game:
         
         commands: Dict[str, Any] = self.__hand_controller.movementDetection(points)
 
-        if self.__game_over:
+        if self.__game_over or self.__pause:
             # restart management
             if commands["restart"]:
-                self.__snake.reset()
-                self.__game_over = False
+                if self.__game_over:
+                    self.__snake.reset()
+                    self.__game_over = False
+                else:
+                    self.__pause = False
+
         else:
             # commands management
             if commands["speed_change"] != 0:
                 self.__snake.speedChange(commands["speed_change"])
-            
-            self.__snake.update(commands["direction"])
+            if commands["pause"]:
+                self.__pause = True
+            else:
+                self.__snake.update(commands["direction"])
 
             # check for collision
             if self.__snake.checkCollision(self.__width, self.__height):
@@ -60,7 +67,9 @@ class Game:
         # display game over screen
         if self.__game_over:
             self.gameOverDisplay()
-        
+        # display pause screen
+        elif self.__pause:
+            self.gamePauseDisplay()
         # display running screen
         else:
             self.__snake.draw(self.__screen)
@@ -78,6 +87,13 @@ class Game:
         restart_display: pygame.Surface = self.__font.render("Make the 'OK' sign with your hand to restart !", True, (0, 0, 0))
         self.__screen.blit(end_display, end_display.get_rect(center=(400, 100)))
         self.__screen.blit(restart_display, restart_display.get_rect(center=(400, 300)))
+
+    def gamePauseDisplay(self) -> None:
+        pause_display: pygame.Surface = self.__font.render("Pause", True, (0, 0, 0))
+        restart_display: pygame.Surface = self.__font.render("Make the 'OK' sign with your hand to continue the game !", True, (0, 0, 0))
+        self.__screen.blit(pause_display, pause_display.get_rect(center=(400, 100)))
+        self.__screen.blit(restart_display, restart_display.get_rect(center=(400, 300)))
+
 
     def gameRunningDisplay(self) -> None:
         speed_display: pygame.Surface = self.__font.render(f"Speed : {self.__snake.getSpeed()}", True, (0, 0, 0))
